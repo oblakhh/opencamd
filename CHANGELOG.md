@@ -3,6 +3,12 @@
 Notable changes per release. The release workflow uses the section of the tagged version as
 the release notes ([`docs/building.md`](docs/building.md)).
 
+## 0.5.1
+
+- Settings → About: the copy buttons for the stream and snapshot URLs now work on the camera's
+  plain-HTTP address (browsers only allow the clipboard API on HTTPS; there is now a fallback, and
+  if copying still fails the URL is selected for copying by hand).
+
 ## 0.5.0
 
 First public release.
