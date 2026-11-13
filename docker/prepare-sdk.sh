@@ -58,6 +58,12 @@ make -C users/squashfs4.0/squashfs-tools -j"$(nproc)" mksquashfs unsquashfs > /t
 st=$sdk/users/squashfs4.0/squashfs-tools
 
 # --- Stock firmware: keep only the kernel and the pruned GPL/LGPL userland ----
+if [ ! -f "$dl/IC-3115W_v2.03.bin" ]; then
+	# Fallback input: the already reduced parts (linux.bin + rootfs-base.tar).
+	tar -C "$prefix/stock" -xf "$dl/ic3115w-stock-base.tar" linux.bin rootfs-base.tar
+	du -sh "$prefix/gpl" "$prefix/stock"
+	exit 0
+fi
 work=/tmp/stock
 mkdir -p "$work"
 python3 -I "$scripts/fwimage.py" split "$dl/IC-3115W_v2.03.bin" "$work/split" > /dev/null

@@ -22,18 +22,31 @@ Outputs: `build/image/IC3115W_camd_upg.bin` (upgrade image) and `build/image/tft
 
 ### Vendor inputs
 
-Two files from Edimax are needed. They are **not** in the repository and are never redistributed;
-the image is built locally (and in CI) and never published. Both are verified against SHA-256
-checksums pinned in `docker/Dockerfile`, and the build fails on a mismatch.
+Two files from Edimax are needed. They are **not** in the repository and the build image is never
+published; the image is built locally (and in CI). Every input is verified against a SHA-256
+checksum pinned in `docker/Dockerfile`; a source that delivers anything else is skipped.
 
-| File | What | Source |
+| File | What | Sources, tried in order |
 |---|---|---|
-| `IC3115W_EDIMAX_20140901.tar.gz` | Edimax GPL source release for the IC-3115W | downloaded from Edimax by default (`GPL_URL`, a zip around the tarball) |
-| `IC-3115W_v2.03.bin` | stock firmware v2.03 | downloaded from Edimax by default (`STOCK_URL`, a zip around the `.bin`) |
+| `IC3115W_EDIMAX_20140901.tar.gz` | Edimax GPL source release for the IC-3115W | `vendor/`; Edimax's download; the Internet Archive's copy (`GPL_URL`, zips around the tarball) |
+| `IC-3115W_v2.03.bin` | stock firmware v2.03 | `vendor/`; Edimax's download (`STOCK_URL`, a zip around the `.bin`) |
+| `ic3115w-stock-base.tar` | fallback for the stock firmware: only the parts the build uses | `vendor/`; the `stock-base` release of this repository (`STOCK_BASE_URL`) |
 
-A copy placed in `vendor/` takes precedence over the download, for offline builds or if the
-download goes away (use copies or hard links; symlinks do not work in a build context). Other URLs
-can be passed with `--build-arg GPL_URL=… STOCK_URL=…`.
+Edimax's server refuses some networks, GitHub's runners among them. The GPL release is then taken
+from the Internet Archive. The stock firmware has no public mirror, so CI uses
+`ic3115w-stock-base.tar` instead: the stock kernel (`linux.bin`) and the stock root filesystem
+reduced to its GPL/LGPL components (`rootfs-base.tar`), exactly what `prepare-sdk.sh` extracts from
+the stock firmware. Every firmware release redistributes these binaries anyway, together with their
+source. Both paths produce byte-identical firmware.
+
+Files placed in `vendor/` take precedence, for offline builds or if a download goes away (use
+copies or hard links; symlinks do not work in a build context). Other URLs can be passed with
+`--build-arg GPL_URL=… STOCK_URL=… STOCK_BASE_URL=…` (space-separated lists are tried in order).
+
+Maintainers: the stock-base asset is made from a build image prepared from the real stock firmware,
+`docker compose run --rm build sh -c 'tar -C /opt/ic3115w/stock --owner=0 --group=0 --numeric-owner
+--mtime="2015-02-26 00:00Z" -cf - linux.bin rootfs-base.tar' > ic3115w-stock-base.tar`, and its
+SHA-256 goes into `STOCK_BASE_SHA256`.
 
 ### What the image contains
 

@@ -48,16 +48,24 @@ RUN printf '#!/bin/sh\nexec /usr/bin/gcc -fgnu89-inline -fcommon "$@"\n' > /usr/
 # Downloads in their own layer: they are cached (locally and in CI) independently of the
 # preparation scripts below, so editing those does not download 800 MB again.
 FROM base AS downloads
-# Edimax's download of the GPL release (a zip around the tarball).
-ARG GPL_URL="https://download.edimax.com/mw/cufiles/files/download/OpenSourceCode/transfer/Wireless/IPCamera/IC-3115W/IC-3115W_v2.01_GPL_20140901.zip"
+# The GPL release (a zip around the tarball): Edimax's download, then the Internet
+# Archive's copy (Edimax's server refuses some networks, e.g. GitHub's runners).
+ARG GPL_URL="https://download.edimax.com/mw/cufiles/files/download/OpenSourceCode/transfer/Wireless/IPCamera/IC-3115W/IC-3115W_v2.01_GPL_20140901.zip https://archive.org/download/edimax-gpl-source/For%20Home/Network%20Cameras/IC-3115W/IC-3115W_v2.01_GPL_20140901.zip"
 ARG GPL_SHA256=25b209c7023ab1d8813c50e4ca0ac1f8195bdc26f464771545130c6c03e68f8f
 # Edimax's download of the stock firmware v2.03 (a zip around the .bin).
 ARG STOCK_URL="https://download.edimax.com/mw/cufiles/files/download/Firmware/transfer/Wireless/IPCamera/IC-3115W/IC-3115W_v2.03.zip"
 ARG STOCK_SHA256=ccc91f8dfabd33ee0a4d342e24189ba983ccf0c9841f7d844e96880a0d0f0e19
+# Fallback when the stock firmware can't be downloaded: only the parts of it we use
+# (stock kernel + rootfs reduced to its GPL/LGPL components, as prepare-sdk.sh makes
+# them), published once as a release asset. Every firmware release redistributes
+# these binaries anyway, with their source.
+ARG STOCK_BASE_URL="https://github.com/oblakhh/opencamd/releases/download/stock-base/ic3115w-stock-base.tar"
+ARG STOCK_BASE_SHA256=925c0f2e0ab90ee24202d919a6cd7e04e46896caddfee8e9a7e2602bc5ddfe16
 COPY docker/fetch-vendor.sh /opt/build-scripts/
 RUN --mount=from=vendor,target=/vendor \
     sh /opt/build-scripts/fetch-vendor.sh /dl IC3115W_EDIMAX_20140901.tar.gz "$GPL_SHA256" "$GPL_URL" \
- && sh /opt/build-scripts/fetch-vendor.sh /dl IC-3115W_v2.03.bin "$STOCK_SHA256" "$STOCK_URL"
+ && { sh /opt/build-scripts/fetch-vendor.sh /dl IC-3115W_v2.03.bin "$STOCK_SHA256" "$STOCK_URL" \
+      || sh /opt/build-scripts/fetch-vendor.sh /dl ic3115w-stock-base.tar "$STOCK_BASE_SHA256" "$STOCK_BASE_URL"; }
 
 FROM base AS sdk
 COPY docker/prepare-sdk.sh tools/fwimage.py tools/prune_rootfs.py /opt/build-scripts/
