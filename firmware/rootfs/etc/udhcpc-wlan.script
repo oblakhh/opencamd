@@ -1,0 +1,24 @@
+#!/bin/sh
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Copyright (C) 2026 opencamd contributors
+# udhcpc event script for wlan0. Always sets the address; installs the default
+# route and DNS only while Wi-Fi is the active uplink (/var/run/uplink = wlan0),
+# so a wired uplink is never disturbed.
+case "$1" in
+deconfig)
+	ifconfig "$interface" 0.0.0.0
+	;;
+bound|renew)
+	ifconfig "$interface" "$ip" ${subnet:+netmask $subnet} ${broadcast:+broadcast $broadcast}
+	if [ "$(cat /var/run/uplink 2>/dev/null)" = "$interface" ]; then
+		if [ -n "$router" ]; then
+			while route del default 2>/dev/null; do :; done
+			for r in $router; do route add default gw "$r" dev "$interface"; done
+		fi
+		: > /var/resolv.conf
+		for d in $dns; do echo "nameserver $d" >> /var/resolv.conf; done
+	fi
+	echo "udhcpc: $interface $ip" > /dev/console
+	;;
+esac
+exit 0

@@ -1,0 +1,148 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Copyright (C) 2026 opencamd contributors
+#
+# Firmware releases (docs/building.md, "Releases").
+#   push to main       -> the pre-release "snapshot" is replaced by a build of that commit,
+#                         versioned <version>-dev.<commit time>.g<hash> (CAMD_BUILD)
+#   push of tag vX.Y.Z -> the release vX.Y.Z; the tag must match CAMD_VER in firmware/camd/version.h
+#   manual run         -> artifacts only; published only from main
+# Assets: the web/OTA upgrade image, the two TFTP recovery files, the complete source of this
+# repository (with submodules), the source of the vendor GPL components in the image, SHA256SUMS.
+name: Release
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+    paths-ignore: ['**.md', 'docs/**', 'LICENSE']   # not applied to tags
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref == 'refs/heads/main' }}
+
+jobs:
+  version:
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+      build: ${{ steps.v.outputs.build }}
+      label: ${{ steps.v.outputs.label }}
+    steps:
+      - uses: actions/checkout@v7
+      - id: v
+        run: |
+          version=$(sed -n 's/^#define CAMD_VER *"\([0-9.]*\)".*/\1/p' firmware/camd/version.h)
+          if [ "$GITHUB_REF_TYPE" = tag ]; then
+            if [ "$GITHUB_REF_NAME" != "v$version" ]; then
+              echo "::error::tag $GITHUB_REF_NAME does not match CAMD_VER $version in firmware/camd/version.h"
+              exit 1
+            fi
+            build=
+          else
+            build="-dev.$(TZ=UTC git log -1 --format=%cd --date=format-local:%Y%m%d%H%M%S).g$(git rev-parse --short=7 HEAD)"
+          fi
+          {
+            echo "version=$version"
+            echo "build=$build"
+            echo "label=$version$build"
+          } >> "$GITHUB_OUTPUT"
+          echo "version $version$build"
+
+  firmware:
+    needs: version
+    runs-on: ubuntu-24.04
+    env:
+      CAMD_BUILD: ${{ needs.version.outputs.build }}
+      LABEL: ${{ needs.version.outputs.label }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: true
+      - uses: docker/setup-buildx-action@v4
+      - name: Build image (cached)
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: docker/Dockerfile
+          build-contexts: vendor=./vendor
+          load: true
+          tags: camd-build:ci
+          cache-from: type=gha,scope=camd-build
+          cache-to: type=gha,mode=max,scope=camd-build
+      - name: Tests, firmware build and packaging
+        run: |
+          docker run --rm -v "$PWD:/work" -e CAMD_BUILD camd-build:ci \
+            sh -ec 'tools/build_all.sh; tools/package_release.sh "$0"' "$LABEL"
+      - name: Source archive
+        run: tools/source_archive.sh "$LABEL"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: release
+          path: dist/*
+          if-no-files-found: error
+
+  publish:
+    needs: [version, firmware]
+    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      VERSION: ${{ needs.version.outputs.version }}
+      BUILD: ${{ needs.version.outputs.build }}
+      LABEL: ${{ needs.version.outputs.label }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
+        with:
+          name: release
+          path: assets
+      - name: Checksums
+        run: |
+          cd assets
+          sha256sum -- * > SHA256SUMS
+          cat SHA256SUMS
+      - name: Release notes
+        run: |
+          {
+            if [ -n "$BUILD" ]; then
+              echo "Development build of $GITHUB_SHA on main. Every push to main replaces it; for a"
+              echo "stable version, use a numbered release."
+            elif [ -f CHANGELOG.md ]; then
+              # the CHANGELOG.md section of this version, if there is one
+              awk -v v="$VERSION" '/^## / { p = index($0, v) > 0; next } p' CHANGELOG.md
+            fi
+            cat <<NOTES
+
+          ## Installation
+
+          - **Update a camera running opencamd:** Settings → System → Firmware update, with
+            \`camd-$LABEL-upg.bin\`.
+          - **First install or recovery:** TFTP recovery mode with \`camd-$LABEL-tftp-linux.bin\` and
+            \`camd-$LABEL-tftp-root.bin\`, as described in \`docs/recovery.md\`. Back up the flash first.
+
+          \`camd-$LABEL-source.tar.gz\` is the complete source of this release (including the
+          submodules); \`ic3115w-gpl-sources.tar.xz\` is the source of the vendor GPL components in the
+          image (Linux kernel, busybox, udhcp, wireless tools, uClibc). \`SHA256SUMS\` has the checksums
+          of all files.
+          NOTES
+          } > notes.md
+          cat notes.md
+      - name: Publish
+        run: |
+          if [ -n "$BUILD" ]; then
+            gh release delete snapshot --cleanup-tag --yes || true
+            gh api -X DELETE "repos/$GITHUB_REPOSITORY/git/refs/tags/snapshot" > /dev/null 2>&1 || true
+            gh release create snapshot assets/* --prerelease --target "$GITHUB_SHA" \
+              --title "Development build $LABEL" --notes-file notes.md
+          elif gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" assets/* --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" assets/* --verify-tag \
+              --title "opencamd $VERSION" --notes-file notes.md
+          fi

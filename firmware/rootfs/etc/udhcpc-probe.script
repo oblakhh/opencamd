@@ -1,0 +1,8 @@
+#!/bin/sh
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Copyright (C) 2026 opencamd contributors
+# udhcpc event script for the Wi-Fi test (wifiapply.sh probe): report the
+# offered lease on stdout and configure nothing, so eth0's address, default
+# route and DNS are never touched.
+[ "$1" = bound ] && echo "DHCP_IP=$ip"
+exit 0

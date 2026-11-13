@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Copyright (C) 2026 opencamd contributors
+# busybox init table: rcS, then camd and a serial shell under supervision.
+::sysinit:/etc/init.d/rcS
+# camd under init supervision: started after rcS completes, auto-restarted if it exits.
+::respawn:/bin/camd -r /www
+# Root shell on the (desoldered) serial console, for bench debugging.
+ttyS0::respawn:-/bin/sh
+::ctrlaltdel:/bin/reboot
+::shutdown:/bin/umount -a -r

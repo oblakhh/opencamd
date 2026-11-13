@@ -1,0 +1,9 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Copyright (C) 2026 opencamd contributors
+#
+# Native (any architecture) image for firmware inspection: no vendor toolchain needed.
+FROM debian:12
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    squashfs-tools xz-utils file python3 binutils \
+    && rm -rf /var/lib/apt/lists/*
+WORKDIR /work

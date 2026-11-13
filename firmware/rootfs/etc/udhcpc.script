@@ -1,0 +1,22 @@
+#!/bin/sh
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Copyright (C) 2026 opencamd contributors
+# busybox udhcpc event script
+case "$1" in
+deconfig)
+	# keep the device reachable at the fallback while no lease is held
+	ifconfig "$interface" 192.168.2.3 netmask 255.255.255.0
+	;;
+bound|renew)
+	ifconfig "$interface" "$ip" ${subnet:+netmask $subnet} ${broadcast:+broadcast $broadcast}
+	if [ -n "$router" ]; then
+		while route del default gw 0.0.0.0 dev "$interface" 2>/dev/null; do :; done
+		for r in $router; do route add default gw "$r" dev "$interface"; done
+	fi
+	: > /var/resolv.conf
+	for d in $dns; do echo "nameserver $d" >> /var/resolv.conf; done
+	echo "1 1" > /proc/gpio   # network LED on
+	echo "udhcpc: $interface $ip" > /dev/console
+	;;
+esac
+exit 0

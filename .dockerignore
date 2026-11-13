@@ -1,0 +1,6 @@
+# The image build needs only these files from the repository; vendor inputs come
+# from the separate "vendor" build context.
+*
+!docker/
+!tools/fwimage.py
+!tools/prune_rootfs.py

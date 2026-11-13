@@ -1,0 +1,51 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Copyright (C) 2026 opencamd contributors
+#
+# Build and test on every push and pull request: host unit tests (camd, web UI), the MIPS
+# build of camd and the firmware image, all inside the build image (docker/README.md).
+# The build image is built from Edimax's downloads; its layers are cached in the GitHub
+# Actions cache, so the vendor files are downloaded only when the cache is cold.
+name: CI
+
+on:
+  push:
+    branches: ['**']
+    paths-ignore: ['**.md', 'docs/**', 'LICENSE']
+  pull_request:
+    paths-ignore: ['**.md', 'docs/**', 'LICENSE']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: true
+      - uses: docker/setup-buildx-action@v4
+      - name: Build image (cached)
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: docker/Dockerfile
+          build-contexts: vendor=./vendor
+          load: true
+          tags: camd-build:ci
+          cache-from: type=gha,scope=camd-build
+          cache-to: type=gha,mode=max,scope=camd-build
+      - name: Tests and firmware build
+        run: docker run --rm -v "$PWD:/work" camd-build:ci tools/build_all.sh
+      - uses: actions/upload-artifact@v7
+        with:
+          name: firmware
+          path: |
+            build/image/IC3115W_camd_upg.bin
+            build/image/tftp/*.bin
+          if-no-files-found: error

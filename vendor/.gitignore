@@ -1,0 +1,3 @@
+# Vendor inputs for the build image (see docker/README.md); never committed.
+*
+!.gitignore

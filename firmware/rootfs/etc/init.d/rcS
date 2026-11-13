@@ -1,0 +1,53 @@
+#!/bin/sh
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Copyright (C) 2026 opencamd contributors
+# camd custom firmware init. Replicates the stock RTL8196C switch/bridge network
+# bring-up (the hardware switch needs sw_nat + VLAN mib, or eth0 carries no traffic).
+# camd itself is started by /etc/inittab (::respawn) AFTER this script completes, so
+# it comes up once the network + camera have settled and is auto-restarted if it dies.
+PATH=/bin:/sbin:/usr/bin:/usr/sbin
+export PATH
+
+mount -t proc proc /proc
+mount -t sysfs sysfs /sys
+mount -t ramfs ramfs /var
+mkdir -p /var/run /var/log /var/tmp /var/lock /var/empty /dev/pts
+mount -t devpts devpts /dev/pts
+hostname ic3115w
+
+# LEDs (docs/hardware.md GPIO map): power blinks while booting.
+echo "0 2" > /proc/gpio 2>/dev/null
+
+# Logging early so boot is captured (remote target applied later by camd/config).
+syslogd -L -O /var/log/messages -s 200
+klogd 2>/dev/null
+
+# --- Network: stock RTL8196C switch + bridge bring-up (proven working on this HW) ---
+echo 1 > /proc/sw_nat 2>/dev/null          # hardware switch: bridge mode (REQUIRED)
+ifconfig eth0 down 2>/dev/null
+ifconfig eth1 down 2>/dev/null
+# Real per-unit MAC from the COMPHS block in flash (portable; nothing hardcoded).
+# The NIC driver otherwise defaults to the non-unique 00:12:34:56:78:90.
+MAC=$(/bin/getmac 2>/dev/null)
+[ -n "$MAC" ] && ifconfig eth0 hw ether "$MAC" 2>/dev/null
+echo 0 > /proc/rtk_vlan_support 2>/dev/null
+echo "0 1 0 7 1 3022 1" > /proc/eth0/mib_vlan 2>/dev/null
+echo "0 1 0 0 1 1 1" > /proc/wlan0/mib_vlan 2>/dev/null
+echo "0 1 0 0 1 1 0" > /proc/eth1/mib_vlan 2>/dev/null
+ifconfig lo 127.0.0.1 up
+# The IP lives directly on eth0 (no bridge: wlan0 is never bridged, and a
+# one-port bridge only added a layer). 192.168.2.3 is the fallback until DHCP answers.
+ifconfig eth0 192.168.2.3 netmask 255.255.255.0 up
+
+# /etc/passwd is a symlink to this ramfs copy; camd rewrites it from the stored
+# admin password so the telnet shell shares it. Seed the default for the window
+# before camd has written it.
+[ -e /var/passwd ] || echo 'admin:$1$camdsalt$6XyBGDU.0z8wh/eJlcinz0:0:0:admin:/:/bin/sh' > /var/passwd
+
+# The telnet shell is started by camd when enabled in the settings (default off).
+
+# DHCP client. udhcp 0.9.8 ONLY knows: c f b H h i n p q r s v  (NO -t/-T/-A!).
+udhcpc -b -i eth0 -H ic3115w -s /etc/udhcpc.script -p /var/run/udhcpc.pid
+
+echo "0 1" > /proc/gpio 2>/dev/null         # power solid: boot done
+echo "camd firmware up (rcS done; camd starts via inittab)" > /dev/console 2>/dev/null

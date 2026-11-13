@@ -1,0 +1,20 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Copyright (C) 2026 opencamd contributors
+#
+# Build environment. Typical use:
+#   docker compose build                 # once: builds the image (needs vendor/, see docker/README.md)
+#   docker compose run --rm build        # full build -> build/image/
+#   docker compose run --rm build bash   # shell in the build environment
+services:
+  build:
+    image: ${CAMD_BUILD_IMAGE:-camd-build:latest}
+    platform: linux/amd64
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      additional_contexts:
+        vendor: ./vendor
+    volumes:
+      - .:/work
+    working_dir: /work
+    command: tools/build_all.sh

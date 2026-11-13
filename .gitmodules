@@ -1,0 +1,12 @@
+[submodule "civetweb"]
+	path = firmware/third_party/civetweb
+	url = https://github.com/civetweb/civetweb.git
+	shallow = true
+[submodule "cjson"]
+	path = firmware/third_party/cjson
+	url = https://github.com/DaveGamble/cJSON.git
+	shallow = true
+[submodule "mbedtls"]
+	path = firmware/third_party/mbedtls
+	url = https://github.com/Mbed-TLS/mbedtls.git
+	shallow = true
