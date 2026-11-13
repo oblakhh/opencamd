@@ -4,10 +4,6 @@ Ideas and planned work, roughly grouped. Nothing here is promised; items move wh
 investigated. Technical background for most networking items is in
 [`docs/firmware.md`](docs/firmware.md) and [`docs/engineering-notes.md`](docs/engineering-notes.md).
 
-## First release (next)
-- Run CI and the release workflow on GitHub for the first time (`.github/workflows/`).
-- Start a `CHANGELOG.md`; the release workflow takes each version's notes from it.
-
 ## Kernel
 Today the vendor kernel (Linux 2.6.30, Realtek SDK) runs unchanged. Owning it is the gate for
 several items below; the first step is proving that a kernel built from the GPL source boots
@@ -46,9 +42,9 @@ in place of the stock one (TFTP recovery makes this safe to try).
 - Keep the third-party submodules (civetweb, cJSON, mbedTLS) current.
 
 ## Camera & integrations
+- Investigate the camera module's controls (exposure, white balance) via UVC.
 - **RTSP / RTP-JPEG** and possibly **ONVIF Profile S**, for NVRs such as Synology Surveillance Station.
 - **Home Assistant:** tighter integration (e.g. MQTT discovery, status sensors) beyond the MJPEG camera.
-- Investigate the camera module's controls (exposure, white balance) via UVC.
 
 ## Reliability
 - **Group-key renewals occasionally fail:** about 1 in 100 renewals does not complete and the access
