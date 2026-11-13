@@ -7,6 +7,7 @@
 import { computed, ref } from 'vue'
 import type { Status } from '../../types'
 import Icon from '../Icon.vue'
+import { copyText, selectText } from '../../utils/clipboard'
 
 const props = defineProps<{ status: Status | null }>()
 
@@ -32,15 +33,25 @@ const endpoints = [
   { label: 'Snapshot', path: '/snapshot.jpg', note: 'Home Assistant “Generic Camera” · PrusaLink pull' },
 ]
 const copied = ref('')
+// Path whose copy failed: its URL is selected for a manual Ctrl/Cmd+C.
+const copyFailed = ref('')
 let copiedTimer: number | undefined
-async function copy(path: string) {
-  try {
-    await navigator.clipboard.writeText(origin + path)
+async function copy(path: string, ev: MouseEvent) {
+  const row = (ev.currentTarget as HTMLElement | null)?.closest('li')
+  if (copiedTimer) clearTimeout(copiedTimer)
+  if (await copyText(origin + path)) {
+    copyFailed.value = ''
     copied.value = path
-    if (copiedTimer) clearTimeout(copiedTimer)
     copiedTimer = window.setTimeout(() => (copied.value = ''), 1600)
-  } catch { /* clipboard unavailable (http origin on some browsers) */ }
+    return
+  }
+  // No clipboard access at all: select the URL so the user can copy it.
+  copied.value = ''
+  copyFailed.value = path
+  const el = row?.querySelector('.eurl')
+  if (el) selectText(el)
 }
+const copyKey = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent) ? '⌘C' : 'Ctrl+C'
 </script>
 
 <template>
@@ -73,9 +84,10 @@ async function copy(path: string) {
         <div class="etext">
           <span class="elabel">{{ e.label }}</span>
           <a class="mono eurl" :href="e.path" target="_blank" rel="noopener">{{ origin }}{{ e.path }}</a>
-          <span class="hint">{{ e.note }}</span>
+          <span v-if="copyFailed === e.path" class="hint err" role="status">Couldn’t copy automatically — URL selected, press {{ copyKey }} (or long-press it).</span>
+          <span v-else class="hint">{{ e.note }}</span>
         </div>
-        <button class="btn btn-sm" type="button" :aria-label="`Copy ${e.label} URL`" @click="copy(e.path)">
+        <button class="btn btn-sm" type="button" :aria-label="`Copy ${e.label} URL`" @click="copy(e.path, $event)">
           <Transition name="fade" mode="out-in">
             <span v-if="copied === e.path" key="ok" class="copied"><Icon name="check" :size="14" /> Copied</span>
             <span v-else key="c"><Icon name="copy" :size="14" /> Copy</span>
