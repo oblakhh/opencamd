@@ -14,8 +14,6 @@
 #include <pthread.h>
 #include <stdio.h>
 #include <string.h>
-#include <sys/types.h>
-#include <sys/wait.h>
 #include <time.h>
 #include <unistd.h>
 
@@ -102,39 +100,6 @@ void auth_write_system_passwd(const char *path)
 	if (!f) return;
 	fprintf(f, "%s:%s:0:0:admin:/:/bin/sh\n", USER, hash);
 	fclose(f);
-}
-
-/* Run a busybox tool without inheriting camd's descriptors (HTTP socket, video
- * device, flash): telnetd daemonizes and must not keep those open across a camd
- * restart. Waits for the direct child only. */
-static void run_clean(const char *path, char *const argv[])
-{
-	pid_t p = fork();
-	if (p == 0) {
-		int fd;
-		for (fd = 3; fd < 1024; fd++)
-			close(fd);
-		execv(path, argv);
-		_exit(127);
-	}
-	if (p > 0)
-		waitpid(p, NULL, 0);
-}
-
-/* Start or stop the telnet shell to match the setting (system.telnet). */
-void auth_apply_telnet(int on)
-{
-	static int state = -1;   /* unknown at start: rcS no longer starts telnetd */
-	char *start[] = { "telnetd", NULL };
-	char *stop[] = { "killall", "telnetd", NULL };
-	on = on ? 1 : 0;
-	if (on == state)
-		return;
-	if (on)
-		run_clean("/bin/telnetd", start);
-	else
-		run_clean("/bin/killall", stop);
-	state = on;
 }
 
 int auth_check_password(const char *pw)

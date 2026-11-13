@@ -20,7 +20,6 @@ void auth_set_password(const char *pw);        /* hash+salt a new password */
 void auth_set_password_hash(const char *stored); /* load stored "salt:hash" (boot) */
 void auth_get_password_hash(char *out, size_t n); /* current "salt:hash" for persisting */
 void auth_write_system_passwd(const char *path);  /* write busybox login passwd (telnet) */
-void auth_apply_telnet(int on);                   /* start/stop telnetd per system.telnet */
 int  auth_check_password(const char *pw);      /* 1 if matches */
 
 /* Session cookies. Returns 1 and fills token (>= 33 bytes) on login. */

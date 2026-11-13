@@ -262,8 +262,11 @@ settings.
 ## 9. Logging, time
 
 camd logs through `syslog(3)` (facility daemon) to busybox `syslogd`, which keeps a 200 KB
-ring in `/var/log/messages` (ramfs, lost on reboot). `system.syslog_remote` (`host[:port]`) sends
-a copy to a remote collector; `system.syslog_level` is the level. The kernel log ring is 4 KB.
+ring in `/var/log/messages` (ramfs, lost on reboot). `system.syslog_remote` (`host[:port]`, UDP,
+port 514 by default; a host name is resolved when the first message is sent, and retried) sends a
+copy to a remote collector in classic BSD syslog format (RFC 3164); `system.syslog_level` (0–7)
+drops messages less important than that priority, locally and remotely. camd restarts `syslogd`
+with these options at startup and whenever they change (`services.c`). The kernel log ring is 4 KB.
 The clock is set by camd's SNTP client from `system.ntp` (retry every 60 s until the first
 success, then hourly); `/api/status.time` is UTC. Internal intervals use `CLOCK_MONOTONIC`, so the
 jump from 1970 to the current time at the first sync does not affect timeouts.

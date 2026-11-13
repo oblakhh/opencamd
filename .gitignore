@@ -35,6 +35,7 @@ __pycache__/
 firmware/camd/tests/test_netcfg
 firmware/camd/tests/test_wifi
 firmware/camd/tests/test_wpa
+firmware/camd/tests/test_services
 firmware/camd/tests/host-mbedtls/
 firmware/camd/tests/libmbedcrypto-host.a
 

@@ -12,6 +12,7 @@
 #include "config_store.h"
 #include "crc32.h"
 #include "auth.h"
+#include "services.h"
 #include "framebuf.h"
 #include "capture.h"
 #include "http.h"
@@ -117,7 +118,8 @@ int main(int argc, char **argv)
 	if (cfg.system.pw_hash[0])
 		auth_set_password_hash(cfg.system.pw_hash);
 	auth_write_system_passwd("/var/passwd"); /* telnet shares the admin password */
-	auth_apply_telnet(cfg.system.telnet);
+	services_apply_telnet(cfg.system.telnet);
+	services_apply_syslog(cfg.system.syslog_remote, cfg.system.syslog_level);
 	/* command-line overrides win over stored config (handy for testing) */
 	if (over_w) cfg.video.width = over_w;
 	if (over_h) cfg.video.height = over_h;

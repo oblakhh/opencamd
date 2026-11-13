@@ -22,7 +22,7 @@ CPPFLAGS += -DCAMD_BUILD='"$(CAMD_BUILD)"'
 endif
 
 OBJS := main.o capture.o http.o framebuf.o config.o config_store.o flash.o \
-        ota.o mjpeg.o ntp.o uploader.o gpio.o netcfg.o wifi.o wpa.o wpa_drv.o net.o crc32.o auth.o log.o cjson.o civetweb.o
+        ota.o mjpeg.o ntp.o uploader.o gpio.o netcfg.o wifi.o wpa.o wpa_drv.o net.o crc32.o auth.o services.o log.o cjson.o civetweb.o
 
 all: camd getmac
 
@@ -42,7 +42,7 @@ cjson.o: $(CJSON)/cJSON.c
 	$(CC) $(CFLAGS) $(CPPFLAGS) -c -o $@ $<
 
 # Host unit tests (pure-logic modules only; no device needed).
-test: tests/test_framebuf tests/test_config tests/test_ota tests/test_mjpeg tests/test_netcfg tests/test_wifi tests/test_wpa
+test: tests/test_framebuf tests/test_config tests/test_ota tests/test_mjpeg tests/test_netcfg tests/test_wifi tests/test_wpa tests/test_services
 	./tests/test_framebuf
 	./tests/test_config
 	./tests/test_ota
@@ -50,6 +50,7 @@ test: tests/test_framebuf tests/test_config tests/test_ota tests/test_mjpeg test
 	./tests/test_netcfg
 	./tests/test_wifi
 	./tests/test_wpa
+	./tests/test_services
 
 tests/test_framebuf: tests/test_framebuf.c framebuf.c framebuf.h
 	$(HOSTCC) -O2 -Wall -Wextra -pthread -I. -o $@ tests/test_framebuf.c framebuf.c
@@ -80,10 +81,13 @@ tests/test_wpa: tests/test_wpa.c wpa.c wpa.h wpa_drv.c wpa_drv.h tests/libmbedcr
 	    -pthread -DWPA_DRV_TEST -I. -I$(MBEDTLS)/include -o $@ tests/test_wpa.c wpa.c wpa_drv.c log.c \
 	    tests/libmbedcrypto-host.a
 
+tests/test_services: tests/test_services.c services.c log.c
+	$(HOSTCC) -O2 -Wall -Wextra -I. -o $@ tests/test_services.c services.c log.c
+
 tests/test_mjpeg: tests/test_mjpeg.c mjpeg.c
 	$(HOSTCC) -O2 -Wall -Wextra -I. -o $@ tests/test_mjpeg.c mjpeg.c
 
 clean:
-	rm -f $(OBJS) camd getmac tests/test_framebuf tests/test_config tests/test_ota tests/test_mjpeg tests/test_netcfg tests/test_wifi tests/test_wpa
+	rm -f $(OBJS) camd getmac tests/test_framebuf tests/test_config tests/test_ota tests/test_mjpeg tests/test_netcfg tests/test_wifi tests/test_wpa tests/test_services
 
 .PHONY: all test clean

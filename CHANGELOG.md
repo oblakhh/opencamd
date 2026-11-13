@@ -5,6 +5,8 @@ the release notes ([`docs/building.md`](docs/building.md)).
 
 ## 0.5.1
 
+- Remote syslog works: the camera now sends its log to the configured host (`host[:port]`, UDP
+  514 by default), and the log level setting takes effect. Both were stored but not applied.
 - Settings → About: the copy buttons for the stream and snapshot URLs now work on the camera's
   plain-HTTP address (browsers only allow the clipboard API on HTTPS; there is now a fallback, and
   if copying still fails the URL is selected for copying by hand).

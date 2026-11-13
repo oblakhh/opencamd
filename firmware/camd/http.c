@@ -9,6 +9,7 @@
 #include "http.h"
 #include "log.h"
 #include "auth.h"
+#include "services.h"
 #include "config_store.h"
 #include "ota.h"
 #include "netcfg.h"
@@ -423,6 +424,13 @@ static int h_config(struct mg_connection *c, void *cbdata)
 			             "Connection: close\r\n\r\n{\"ok\":false,\"error\":\"invalid video settings\"}");
 			return 400;
 		}
+		if (!services_syslog_target_ok(nc.system.syslog_remote) ||
+		    nc.system.syslog_level < 0 || nc.system.syslog_level > 7) {
+			pthread_mutex_unlock(&g_ctl);
+			mg_printf(c, "HTTP/1.1 400 Bad Request\r\nContent-Type: application/json\r\n"
+			             "Connection: close\r\n\r\n{\"ok\":false,\"error\":\"invalid syslog settings\"}");
+			return 400;
+		}
 		if (nc.upload.enabled &&
 		    ((strncmp(nc.upload.url, "http://", 7) != 0 &&
 		      strncmp(nc.upload.url, "https://", 8) != 0) ||
@@ -438,7 +446,8 @@ static int h_config(struct mg_connection *c, void *cbdata)
 		if (nc.video.width != ow || nc.video.height != oh || nc.video.target_fps != of)
 			capture_reconfigure(ctx->cap, nc.video.width, nc.video.height, nc.video.target_fps);
 		config_store_save(ctx->cfg, ctx->cfgdev);
-		auth_apply_telnet(nc.system.telnet);
+		services_apply_telnet(nc.system.telnet);
+		services_apply_syslog(nc.system.syslog_remote, nc.system.syslog_level);
 		jj = config_to_json(ctx->cfg, 0);
 		pthread_mutex_unlock(&g_ctl);
 		mg_printf(c, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n"
